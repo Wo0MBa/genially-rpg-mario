@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Генератор: Платформер с буквами</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #111; color: #eee; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
+    h1 { color: #ff4500; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    h3 { border-bottom: 2px solid #444; padding-bottom: 5px; color: #ffaa00; }
+    input[type="url"], input[type="text"] { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 5px; border: 1px solid #555; background: #333; color: white; box-sizing: border-box; }
+    button { background: #ff4500; color: white; padding: 12px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; width: 100%; margin-top: 10px; }
+    button:hover { background: #ff6347; }
+    
+    .task-card { background: #2a2a2a; border: 1px solid #444; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; }
+    .task-card input { margin-bottom: 0; }
+    .task-num { font-size: 1.2rem; font-weight: bold; color: #ffaa00; min-width: 30px; }
+    #add-task-btn { background: transparent; border: 2px dashed #ff4500; color: #ff4500; }
+    #add-task-btn:hover { background: rgba(255, 69, 0, 0.1); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Генератор Платформера</h1>
+    
+    <h3>1. Графика (Оставьте пустым для стандартных)</h3>
+    <input type="url" id="bg-url" placeholder="URL фона (например, лес или горы)">
+    <input type="url" id="char1-url" placeholder="URL персонажа 1">
+    <input type="url" id="char2-url" placeholder="URL персонажа 2">
+    <input type="url" id="char3-url" placeholder="URL персонажа 3">
+
+    <h3>2. Задания (Слова с пропусками)</h3>
+    <p style="color: #aaa; font-size: 0.9em;">Используйте нижнее подчеркивание "_" для пропуска. Например: С_БАКА.</p>
+    <div id="tasks-panel"></div>
+    <button id="add-task-btn">+ Добавить слово</button>
+
+    <h3>3. Экспорт для Genially (1200x700)</h3>
+    <button id="generate-btn" style="background: #28a745;">Сгенерировать iframe-код</button>
+    <textarea id="iframe-code" rows="4" readonly style="width: 100%; margin-top: 15px; padding: 10px; background: #111; color: #0f0; border: 1px solid #333;"></textarea>
+  </div>
+
+  <script>
+    let taskCount = 0;
+    const tasksPanel = document.getElementById('tasks-panel');
+
+    function addTask() {
+      taskCount++;
+      const div = document.createElement('div');
+      div.className = 'task-card';
+      div.id = `task-${taskCount}`;
+      div.innerHTML = `
+        <div class="task-num">${taskCount}.</div>
+        <input type="text" class="t-word" placeholder="Слово (напр: К_РОВА)" style="flex: 2;">
+        <input type="text" class="t-correct" placeholder="Верная буква (О)" style="flex: 1; border-color: #28a745;">
+        <input type="text" class="t-wrong" placeholder="Ошибка (А)" style="flex: 1; border-color: #dc3545;">
+      `;
+      tasksPanel.appendChild(div);
+    }
+
+    // Добавляем 3 стартовых задания для удобства
+    addTask(); addTask(); addTask();
+    document.getElementById('add-task-btn').addEventListener('click', addTask);
+
+    document.getElementById('generate-btn').addEventListener('click', () => {
+      const data = {
+        bg: document.getElementById('bg-url').value || 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200', // дефолтный фон
+        chars: [
+          document.getElementById('char1-url').value || 'https://cdn-icons-png.flaticon.com/128/104/104663.png',
+          document.getElementById('char2-url').value,
+          document.getElementById('char3-url').value
+        ].filter(Boolean),
+        tasks: []
+      };
+
+      let valid = true;
+      document.querySelectorAll('.task-card').forEach(card => {
+        const word = card.querySelector('.t-word').value.trim();
+        const correct = card.querySelector('.t-correct').value.trim().toUpperCase();
+        const wrong = card.querySelector('.t-wrong').value.trim().toUpperCase();
+        
+        if(word || correct || wrong) {
+          if(!word || !correct || !wrong) valid = false;
+          data.tasks.push({ word, correct, wrong });
+        }
+      });
+
+      if (!valid || data.tasks.length === 0) return alert('Заполните все поля в добавленных заданиях!');
+
+      const encodedData = btoa(encodeURIComponent(JSON.stringify(data)));
+      const currentUrl = window.location.href.replace(/\/[^\/]*$/, '/');
+      const widgetUrl = `${currentUrl}mario-widget.html?data=${encodedData}`;
+      
+      // Строго фиксируем размер 1200x700
+      const iframeStr = `<iframe src="${widgetUrl}" width="1200" height="700" frameborder="0" allowfullscreen style="max-width: 100%; border: none;"></iframe>`;
+      document.getElementById('iframe-code').value = iframeStr;
+      navigator.clipboard.writeText(iframeStr);
+      
+      const btn = document.getElementById('generate-btn');
+      btn.innerText = '✅ Скопировано!';
+      setTimeout(() => btn.innerText = 'Сгенерировать iframe-код', 2000);
+    });
+  </script>
+</body>
+</html>
