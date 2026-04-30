@@ -2,248 +2,103 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Mario Spelling Game</title>
+  <title>Генератор: Платформер с буквами</title>
   <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; display: flex; justify-content: center; align-items: center; font-family: 'Segoe UI', Tahoma, sans-serif; }
+    body { font-family: 'Segoe UI', sans-serif; background: #111; color: #eee; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
+    h1 { color: #ff4500; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+    h3 { border-bottom: 2px solid #444; padding-bottom: 5px; color: #ffaa00; }
+    input[type="url"], input[type="text"] { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 5px; border: 1px solid #555; background: #333; color: white; box-sizing: border-box; }
+    button { background: #ff4500; color: white; padding: 12px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; width: 100%; margin-top: 10px; }
+    button:hover { background: #ff6347; }
     
-    /* Игровое окно 1200x700 */
-    #game-window { position: relative; width: 1200px; height: 700px; background-size: cover; background-position: bottom; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8); max-width: 100vw; aspect-ratio: 12 / 7; }
-
-    /* Лава (Слой: 35 - чтобы перекрывала падающего героя) */
-    #lava { position: absolute; bottom: 0; width: 100%; height: 60px; background: linear-gradient(to bottom, #ff4500, #8b0000); border-top: 5px solid #ffaa00; z-index: 35; }
-    
-    /* Мир (Скрыт до старта) */
-    #world { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transition: left 1s ease-in-out, opacity 0.8s; opacity: 0; }
-    
-    /* Земля (Слой: 30 - Герой (20) падает ЗА нее, создавая эффект ямы) */
-    .ground-segment { position: absolute; bottom: 60px; width: 1200px; height: 100px; background: #6b4226; border-top: 15px solid #3cb371; z-index: 30; }
-
-    /* Интерфейс */
-    #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0; transition: opacity 0.8s; }
-    #score-board { position: absolute; top: 20px; right: 30px; background: rgba(0,0,0,0.7); color: #fff; padding: 10px 20px; font-size: 28px; font-weight: bold; border-radius: 10px; border: 2px solid gold; text-shadow: 2px 2px 0 #000; }
-
-    /* Персонаж (Слой: 20) */
-    #player {
-      position: absolute;
-      width: 100px; height: 100px;
-      bottom: 160px; /* Уровень земли */
-      left: 200px;
-      z-index: 20;
-      object-fit: contain;
-      /* Плавные переходы для ходьбы и прыжков */
-      transition: left 0.6s linear, bottom 0.3s cubic-bezier(0.2, 0.8, 0.3, 1), transform 0.5s ease;
-    }
-    #player.jump { bottom: 220px; /* Высота прыжка до блока */ }
-    #player.fall { bottom: -150px; transform: rotate(180deg); transition: bottom 0.8s ease-in, transform 0.8s; }
-
-    /* Элементы уровня */
-    .level-station { position: absolute; width: 1200px; height: 100%; top: 0; }
-    
-    .word-display { position: absolute; top: 150px; width: 100%; text-align: center; font-size: 70px; color: white; font-weight: 900; text-shadow: 4px 4px 0 #000, 0 0 15px rgba(255,255,255,0.5); letter-spacing: 8px; }
-    
-    .blocks-container { position: absolute; top: 300px; left: 50%; transform: translateX(-50%); display: flex; gap: 80px; }
-    
-    /* КРАСИВЫЙ БЛОК МАРИО */
-    .question-block {
-      position: relative;
-      width: 80px; height: 80px;
-      background: linear-gradient(135deg, #ffc107, #d39e00);
-      border: 4px solid #000;
-      border-radius: 8px;
-      display: flex; justify-content: center; align-items: center;
-      font-size: 50px; color: white; font-weight: 900;
-      cursor: pointer; pointer-events: auto;
-      box-shadow: inset -5px -5px 0 rgba(0,0,0,0.3), inset 5px 5px 0 rgba(255,255,255,0.6), 5px 5px 15px rgba(0,0,0,0.6);
-      text-shadow: 2px 2px 0 #000;
-    }
-    /* Заклепки по углам блока */
-    .question-block::after { content: ''; position: absolute; inset: 4px; border: 2px dashed rgba(0,0,0,0.15); border-radius: 4px; pointer-events: none; }
-    
-    /* Анимация отскока блока при правильном ударе */
-    @keyframes bump {
-      0% { transform: translateY(0); }
-      50% { transform: translateY(-20px); }
-      100% { transform: translateY(0); }
-    }
-    .question-block.bump { animation: bump 0.2s ease-out; }
-
-    /* Экраны старта и победы */
-    .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; }
-    .char-select { display: flex; gap: 30px; margin-top: 30px; }
-    .char-option { width: 120px; height: 120px; object-fit: contain; cursor: pointer; transition: 0.2s; background: rgba(0,0,0,0.6); border-radius: 15px; padding: 10px; border: 4px solid transparent; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
-    .char-option:hover { transform: scale(1.1); border-color: #00bfff; }
-    
-    #victory-screen { background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
-    #victory-screen h1 { font-size: 80px; color: gold; text-shadow: 0 0 30px rgba(255,215,0,0.8); margin: 0; }
-    #victory-screen button { margin-top: 30px; padding: 15px 40px; font-size: 24px; background: #28a745; color: white; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 5px 0 #1e7e34; transition: 0.2s; }
-    #victory-screen button:active { transform: translateY(5px); box-shadow: none; }
+    .task-card { background: #2a2a2a; border: 1px solid #444; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; }
+    .task-card input { margin-bottom: 0; }
+    .task-num { font-size: 1.2rem; font-weight: bold; color: #ffaa00; min-width: 30px; }
+    #add-task-btn { background: transparent; border: 2px dashed #ff4500; color: #ff4500; }
+    #add-task-btn:hover { background: rgba(255, 69, 0, 0.1); }
   </style>
 </head>
 <body>
-
-  <div id="game-window">
-    <div id="lava"></div>
-    <div id="world"></div>
+  <div class="container">
+    <h1>Генератор Платформера</h1>
     
-    <img id="player" src="" style="display: none;">
-    
-    <div id="ui-layer">
-      <div id="score-board">⭐ 0</div>
-    </div>
+    <h3>1. Графика (Оставьте пустым для стандартных)</h3>
+    <input type="url" id="bg-url" placeholder="URL фона (например, лес или горы)">
+    <input type="url" id="char1-url" placeholder="URL персонажа 1">
+    <input type="url" id="char2-url" placeholder="URL персонажа 2">
+    <input type="url" id="char3-url" placeholder="URL персонажа 3">
 
-    <div id="start-screen" class="overlay">
-      <h1 style="color: #fff; text-shadow: 2px 2px 0 #000, 0 0 20px #00bfff;">Кем ты будешь играть?</h1>
-      <div class="char-select" id="char-container"></div>
-    </div>
+    <h3>2. Задания (Слова с пропусками)</h3>
+    <p style="color: #aaa; font-size: 0.9em;">Используйте нижнее подчеркивание "_" для пропуска. Например: С_БАКА.</p>
+    <div id="tasks-panel"></div>
+    <button id="add-task-btn">+ Добавить слово</button>
 
-    <div id="victory-screen" class="overlay" style="display: none;">
-      <h1>СУПЕР!</h1>
-      <p style="font-size: 30px; color: #ccc;">Ты ответил на все слова!</p>
-      <button onclick="location.reload()">Сыграть еще раз</button>
-    </div>
+    <h3>3. Экспорт для Genially (1200x700)</h3>
+    <button id="generate-btn" style="background: #28a745;">Сгенерировать iframe-код</button>
+    <textarea id="iframe-code" rows="4" readonly style="width: 100%; margin-top: 15px; padding: 10px; background: #111; color: #0f0; border: 1px solid #333;"></textarea>
   </div>
 
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const rawData = urlParams.get('data');
-    if (!rawData) {
-      document.body.innerHTML = "<h1 style='color:white;'>Нет данных игры</h1>";
-    } else {
-      const data = JSON.parse(decodeURIComponent(atob(rawData)));
-      initGame(data);
+    let taskCount = 0;
+    const tasksPanel = document.getElementById('tasks-panel');
+
+    function addTask() {
+      taskCount++;
+      const div = document.createElement('div');
+      div.className = 'task-card';
+      div.id = `task-${taskCount}`;
+      div.innerHTML = `
+        <div class="task-num">${taskCount}.</div>
+        <input type="text" class="t-word" placeholder="Слово (напр: К_РОВА)" style="flex: 2;">
+        <input type="text" class="t-correct" placeholder="Верная буква (О)" style="flex: 1; border-color: #28a745;">
+        <input type="text" class="t-wrong" placeholder="Ошибка (А)" style="flex: 1; border-color: #dc3545;">
+      `;
+      tasksPanel.appendChild(div);
     }
 
-    function initGame(data) {
-      document.getElementById('game-window').style.backgroundImage = `url(${data.bg})`;
-      
-      const world = document.getElementById('world');
-      const player = document.getElementById('player');
-      const scoreBoard = document.getElementById('score-board');
-      
-      let currentIndex = 0;
-      let score = 0;
-      let isAnimating = false;
+    // Добавляем 3 стартовых задания для удобства
+    addTask(); addTask(); addTask();
+    document.getElementById('add-task-btn').addEventListener('click', addTask);
 
-      // Генерируем выбор персонажей
-      data.chars.forEach(imgUrl => {
-        const img = document.createElement('img');
-        img.src = imgUrl;
-        img.className = 'char-option';
-        img.onclick = () => {
-          player.src = imgUrl;
-          document.getElementById('start-screen').style.display = 'none';
-          
-          // Показываем мир и UI
-          world.style.opacity = '1';
-          document.getElementById('ui-layer').style.opacity = '1';
-          player.style.display = 'block';
-        };
-        document.getElementById('char-container').appendChild(img);
-      });
-
-      // Генерируем бесконечный уровень
-      data.tasks.forEach((task, index) => {
-        const ground = document.createElement('div');
-        ground.className = 'ground-segment';
-        ground.style.left = `${index * 1200}px`;
-        world.appendChild(ground);
-
-        const station = document.createElement('div');
-        station.className = 'level-station';
-        station.style.left = `${index * 1200}px`;
-        
-        const isCorrectLeft = Math.random() > 0.5;
-        const leftLetter = isCorrectLeft ? task.correct : task.wrong;
-        const rightLetter = isCorrectLeft ? task.wrong : task.correct;
-
-        // Передаем true для левого блока и false для правого, чтобы знать куда идти
-        station.innerHTML = `
-          <div class="word-display" id="word-${index}">${task.word}</div>
-          <div class="blocks-container">
-            <div class="question-block" onclick="checkAnswer(${index}, '${leftLetter}', '${task.correct}', this, true)">${leftLetter}</div>
-            <div class="question-block" onclick="checkAnswer(${index}, '${rightLetter}', '${task.correct}', this, false)">${rightLetter}</div>
-          </div>
-        `;
-        world.appendChild(station);
-      });
-
-      // Логика проверки ответа
-      window.checkAnswer = function(taskIndex, selectedLetter, correctLetter, blockElement, isLeft) {
-        if (isAnimating || taskIndex !== currentIndex) return;
-        isAnimating = true;
-
-        // 1. Идем под нужный кубик (рассчитанные координаты X для левого и правого)
-        const targetLeft = isLeft ? 470 : 630;
-        player.style.left = `${targetLeft}px`;
-
-        // Ждем пока дойдет (0.6 сек)
-        setTimeout(() => {
-          // 2. Прыжок
-          player.classList.add('jump');
-
-          // Ждем пока долетит до кубика (0.3 сек)
-          setTimeout(() => {
-            if (selectedLetter === correctLetter) {
-              // ПРАВИЛЬНО: Кубик отскакивает
-              blockElement.classList.add('bump');
-              
-              // Персонаж падает обратно на землю
-              player.classList.remove('jump');
-
-              setTimeout(() => {
-                // Подставляем букву
-                const wordEl = document.getElementById(`word-${taskIndex}`);
-                wordEl.innerText = wordEl.innerText.replace('_', correctLetter);
-                
-                score++;
-                scoreBoard.innerText = `⭐ ${score}`;
-
-                // Едем дальше
-                setTimeout(() => {
-                  currentIndex++;
-                  if (currentIndex >= data.tasks.length) {
-                    document.getElementById('victory-screen').style.display = 'flex';
-                  } else {
-                    // Камера едет вперед, а персонаж идет обратно в начало кадра
-                    world.style.left = `-${currentIndex * 1200}px`;
-                    player.style.left = '200px'; 
-                    setTimeout(() => { isAnimating = false; }, 1000);
-                  }
-                }, 500);
-              }, 300); // Время приземления
-
-            } else {
-              // ОШИБКА: Кубик не двигается, персонаж падает
-              player.classList.remove('jump');
-              
-              // Задержка на пике прыжка, потом падение в яму
-              setTimeout(() => {
-                player.classList.add('fall');
-                
-                setTimeout(() => {
-                  // Сброс уровня после падения
-                  score = 0;
-                  currentIndex = 0;
-                  scoreBoard.innerText = `⭐ 0`;
-                  
-                  world.style.left = '0px';
-                  player.classList.remove('fall');
-                  player.style.left = '200px';
-                  
-                  // Возвращаем подчеркивания
-                  data.tasks.forEach((t, i) => {
-                    document.getElementById(`word-${i}`).innerText = t.word;
-                  });
-                  document.querySelectorAll('.question-block').forEach(el => el.classList.remove('bump'));
-                  
-                  setTimeout(() => { isAnimating = false; }, 800);
-                }, 1000); // Ждем пока упадет в лаву
-              }, 100); 
-            }
-          }, 300); // Время полета вверх
-        }, 600); // Время ходьбы до блока
+    document.getElementById('generate-btn').addEventListener('click', () => {
+      const data = {
+        bg: document.getElementById('bg-url').value || 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200', // дефолтный фон
+        chars: [
+          document.getElementById('char1-url').value || 'https://cdn-icons-png.flaticon.com/128/104/104663.png',
+          document.getElementById('char2-url').value,
+          document.getElementById('char3-url').value
+        ].filter(Boolean),
+        tasks: []
       };
-    }
+
+      let valid = true;
+      document.querySelectorAll('.task-card').forEach(card => {
+        const word = card.querySelector('.t-word').value.trim();
+        const correct = card.querySelector('.t-correct').value.trim().toUpperCase();
+        const wrong = card.querySelector('.t-wrong').value.trim().toUpperCase();
+        
+        if(word || correct || wrong) {
+          if(!word || !correct || !wrong) valid = false;
+          data.tasks.push({ word, correct, wrong });
+        }
+      });
+
+      if (!valid || data.tasks.length === 0) return alert('Заполните все поля в добавленных заданиях!');
+
+      const encodedData = btoa(encodeURIComponent(JSON.stringify(data)));
+      const currentUrl = window.location.href.replace(/\/[^\/]*$/, '/');
+      const widgetUrl = `${currentUrl}mario-widget.html?data=${encodedData}`;
+      
+      // Строго фиксируем размер 1200x700
+      const iframeStr = `<iframe src="${widgetUrl}" width="1200" height="700" frameborder="0" allowfullscreen style="max-width: 100%; border: none;"></iframe>`;
+      document.getElementById('iframe-code').value = iframeStr;
+      navigator.clipboard.writeText(iframeStr);
+      
+      const btn = document.getElementById('generate-btn');
+      btn.innerText = '✅ Скопировано!';
+      setTimeout(() => btn.innerText = 'Сгенерировать iframe-код', 2000);
+    });
   </script>
 </body>
 </html>
