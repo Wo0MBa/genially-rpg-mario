@@ -12,9 +12,14 @@
     button { background: #ff4500; color: white; padding: 12px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; width: 100%; margin-top: 10px; }
     button:hover { background: #ff6347; }
     
-    .task-card { background: #2a2a2a; border: 1px solid #444; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; }
+    .task-card { background: #2a2a2a; border: 1px solid #444; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; position: relative; }
     .task-card input { margin-bottom: 0; }
     .task-num { font-size: 1.2rem; font-weight: bold; color: #ffaa00; min-width: 30px; }
+    
+    /* Кнопка удаления */
+    .delete-btn { width: 40px; height: 40px; margin: 0; padding: 0; background: #dc3545; color: white; border-radius: 5px; font-size: 18px; line-height: 40px; text-align: center; cursor: pointer; border: none; flex-shrink: 0; transition: 0.2s; }
+    .delete-btn:hover { background: #c82333; transform: scale(1.05); }
+
     #add-task-btn { background: transparent; border: 2px dashed #ff4500; color: #ff4500; }
     #add-task-btn:hover { background: rgba(255, 69, 0, 0.1); }
   </style>
@@ -53,17 +58,35 @@
         <input type="text" class="t-word" placeholder="Слово (напр: К_РОВА)" style="flex: 2;">
         <input type="text" class="t-correct" placeholder="Верная буква (О)" style="flex: 1; border-color: #28a745;">
         <input type="text" class="t-wrong" placeholder="Ошибка (А)" style="flex: 1; border-color: #dc3545;">
+        <button class="delete-btn" onclick="this.parentElement.remove()" title="Удалить слово">✖</button>
       `;
       tasksPanel.appendChild(div);
+      updateNumbers(); // Обновляем нумерацию
+    }
+
+    // Функция чтобы цифры по порядку шли даже если удалить строку посередине
+    function updateNumbers() {
+      const cards = document.querySelectorAll('.task-card');
+      cards.forEach((card, index) => {
+        card.querySelector('.task-num').innerText = `${index + 1}.`;
+      });
     }
 
     // Добавляем 3 стартовых задания для удобства
     addTask(); addTask(); addTask();
+    
+    // Переопределяем удаление, чтобы обновлялись цифры
+    tasksPanel.addEventListener('click', function(e) {
+      if(e.target.classList.contains('delete-btn')) {
+        updateNumbers();
+      }
+    });
+
     document.getElementById('add-task-btn').addEventListener('click', addTask);
 
     document.getElementById('generate-btn').addEventListener('click', () => {
       const data = {
-        bg: document.getElementById('bg-url').value || 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200', // дефолтный фон
+        bg: document.getElementById('bg-url').value || 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200', 
         chars: [
           document.getElementById('char1-url').value || 'https://cdn-icons-png.flaticon.com/128/104/104663.png',
           document.getElementById('char2-url').value,
@@ -84,13 +107,12 @@
         }
       });
 
-      if (!valid || data.tasks.length === 0) return alert('Заполните все поля в добавленных заданиях!');
+      if (!valid || data.tasks.length === 0) return alert('Заполните все поля в оставшихся заданиях!');
 
       const encodedData = btoa(encodeURIComponent(JSON.stringify(data)));
       const currentUrl = window.location.href.replace(/\/[^\/]*$/, '/');
       const widgetUrl = `${currentUrl}mario-widget.html?data=${encodedData}`;
       
-      // Строго фиксируем размер 1200x700
       const iframeStr = `<iframe src="${widgetUrl}" width="1200" height="700" frameborder="0" allowfullscreen style="max-width: 100%; border: none;"></iframe>`;
       document.getElementById('iframe-code').value = iframeStr;
       navigator.clipboard.writeText(iframeStr);
