@@ -8,15 +8,14 @@
     .container { max-width: 900px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
     h1 { color: #ff4500; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
     h3 { border-bottom: 2px solid #444; padding-bottom: 5px; color: #ffaa00; }
-    input[type="url"], input[type="text"] { width: 100%; margin-bottom: 10px; padding: 10px; border-radius: 5px; border: 1px solid #555; background: #333; color: white; box-sizing: border-box; }
-    button { background: #ff4500; color: white; padding: 12px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; width: 100%; margin-top: 10px; }
+    input[type="url"], input[type="text"], select { width: 100%; margin-bottom: 10px; padding: 12px; border-radius: 5px; border: 1px solid #555; background: #333; color: white; box-sizing: border-box; font-size: 16px; font-family: inherit; }
+    button { background: #ff4500; color: white; padding: 12px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; width: 100%; margin-top: 10px; font-size: 16px; }
     button:hover { background: #ff6347; }
     
     .task-card { background: #2a2a2a; border: 1px solid #444; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; position: relative; }
     .task-card input { margin-bottom: 0; }
     .task-num { font-size: 1.2rem; font-weight: bold; color: #ffaa00; min-width: 30px; }
     
-    /* Кнопка удаления */
     .delete-btn { width: 40px; height: 40px; margin: 0; padding: 0; background: #dc3545; color: white; border-radius: 5px; font-size: 18px; line-height: 40px; text-align: center; cursor: pointer; border: none; flex-shrink: 0; transition: 0.2s; }
     .delete-btn:hover { background: #c82333; transform: scale(1.05); }
 
@@ -28,11 +27,20 @@
   <div class="container">
     <h1>Генератор Платформера</h1>
     
-    <h3>1. Графика (Оставьте пустым для стандартных)</h3>
+    <h3>1. Графика и настройки</h3>
     <input type="url" id="bg-url" placeholder="URL фона (например, лес или горы)">
     <input type="url" id="char1-url" placeholder="URL персонажа 1">
     <input type="url" id="char2-url" placeholder="URL персонажа 2">
     <input type="url" id="char3-url" placeholder="URL персонажа 3">
+    
+    <!-- Настройка размера персонажа -->
+    <select id="char-scale">
+      <option value="1">Размер персонажа: Стандартный (1x)</option>
+      <option value="1.5">Размер персонажа: Увеличенный (1.5x)</option>
+      <option value="2">Размер персонажа: Большой (2x)</option>
+      <option value="2.5">Размер персонажа: Огромный (2.5x)</option>
+      <option value="3">Размер персонажа: Гигантский (3x)</option>
+    </select>
 
     <h3>2. Задания (Слова с пропусками)</h3>
     <p style="color: #aaa; font-size: 0.9em;">Используйте нижнее подчеркивание "_" для пропуска. Например: С_БАКА.</p>
@@ -61,10 +69,9 @@
         <button class="delete-btn" onclick="this.parentElement.remove()" title="Удалить слово">✖</button>
       `;
       tasksPanel.appendChild(div);
-      updateNumbers(); // Обновляем нумерацию
+      updateNumbers(); 
     }
 
-    // Функция чтобы цифры по порядку шли даже если удалить строку посередине
     function updateNumbers() {
       const cards = document.querySelectorAll('.task-card');
       cards.forEach((card, index) => {
@@ -72,13 +79,11 @@
       });
     }
 
-    // Добавляем 3 стартовых задания для удобства
     addTask(); addTask(); addTask();
     
-    // Переопределяем удаление, чтобы обновлялись цифры
     tasksPanel.addEventListener('click', function(e) {
       if(e.target.classList.contains('delete-btn')) {
-        updateNumbers();
+        setTimeout(updateNumbers, 10); 
       }
     });
 
@@ -92,6 +97,7 @@
           document.getElementById('char2-url').value,
           document.getElementById('char3-url').value
         ].filter(Boolean),
+        charScale: document.getElementById('char-scale').value, // Сохраняем масштаб
         tasks: []
       };
 
@@ -107,7 +113,7 @@
         }
       });
 
-      if (!valid || data.tasks.length === 0) return alert('Заполните все поля в оставшихся заданиях!');
+      if (!valid || data.tasks.length === 0) return alert('Заполните все поля в оставшихся заданиях или удалите пустые строки!');
 
       const encodedData = btoa(encodeURIComponent(JSON.stringify(data)));
       const currentUrl = window.location.href.replace(/\/[^\/]*$/, '/');
