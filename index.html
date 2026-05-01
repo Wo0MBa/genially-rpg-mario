@@ -115,18 +115,37 @@
 
       if (!valid || data.tasks.length === 0) return alert('Заполните все поля в оставшихся заданиях или удалите пустые строки!');
 
-      const encodedData = btoa(encodeURIComponent(JSON.stringify(data)));
+      const json = JSON.stringify(data);
+      const lzw = compress(json);
       const currentUrl = window.location.href.replace(/\/[^\/]*$/, '/');
-      const widgetUrl = `${currentUrl}mario-widget.html?data=${encodedData}`;
+      const widgetUrl = `${currentUrl}mario-widget.html?z=${encodeURIComponent(lzw)}`;
       
       const iframeStr = `<iframe src="${widgetUrl}" width="1200" height="700" frameborder="0" allowfullscreen style="max-width: 100%; border: none;"></iframe>`;
       document.getElementById('iframe-code').value = iframeStr;
       navigator.clipboard.writeText(iframeStr);
       
       const btn = document.getElementById('generate-btn');
-      btn.innerText = '✅ Скопировано!';
+      btn.innerText = '✅ Сжато и скопировано!';
       setTimeout(() => btn.innerText = 'Сгенерировать iframe-код', 2000);
     });
+
+    // LZW Compression
+    function compress(uncompressed) {
+        let dictionary = {};
+        for (let i = 0; i < 256; i++) dictionary[String.fromCharCode(i)] = i;
+        let word = "", result = [], dictSize = 256;
+        for (let i = 0; i < uncompressed.length; i++) {
+            let c = uncompressed.charAt(i), wc = word + c;
+            if (dictionary.hasOwnProperty(wc)) word = wc;
+            else {
+                result.push(dictionary[word]);
+                dictionary[wc] = dictSize++;
+                word = String(c);
+            }
+        }
+        if (word !== "") result.push(dictionary[word]);
+        return result.map(x => String.fromCharCode(x)).join("");
+    }
   </script>
 </body>
 </html>

@@ -111,12 +111,41 @@
     resizeGame();
 
     const urlParams = new URLSearchParams(window.location.search);
-    const rawData = urlParams.get('data');
-    if (!rawData) {
+    let rawData = "";
+    
+    if (urlParams.has('z')) {
+        rawData = decompress(urlParams.get('z'));
+    } else if (urlParams.has('data')) {
+        try {
+            rawData = decodeURIComponent(atob(urlParams.get('data')));
+        } catch(e) {
+            rawData = decodeURIComponent(urlParams.get('data'));
+        }
+    }
+    
+    if (!rawData || rawData === "{}") {
       document.body.innerHTML = "<h1 style='color:white;'>Нет данных игры</h1>";
     } else {
-      const data = JSON.parse(decodeURIComponent(atob(rawData)));
+      const data = JSON.parse(rawData);
       initGame(data);
+    }
+
+    // LZW Decompression
+    function decompress(compressed) {
+        let dictionary = {};
+        for (let i = 0; i < 256; i++) dictionary[i] = String.fromCharCode(i);
+        let codes = Array.from(compressed).map(c => c.charCodeAt(0));
+        if (codes.length === 0) return "";
+        let word = String.fromCharCode(codes[0]), result = word, dictSize = 256;
+        for (let i = 1; i < codes.length; i++) {
+            let k = codes[i], entry = "";
+            if (dictionary.hasOwnProperty(k)) entry = dictionary[k];
+            else if (k === dictSize) entry = word + word.charAt(0);
+            result += entry;
+            dictionary[dictSize++] = word + entry.charAt(0);
+            word = entry;
+        }
+        return result;
     }
 
     function initGame(data) {
