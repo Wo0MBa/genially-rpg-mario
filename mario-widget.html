@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <title>Vertical Spelling Jump</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
   <style>
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; display: flex; justify-content: center; align-items: center; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
     
-    #game-window { position: relative; width: 1200px; height: 700px; background-size: cover; background-position: center; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8); flex-shrink: 0; }
+    /* Главный контейнер (размеры теперь задаются динамически скриптом) */
+    #game-window { position: relative; width: 1200px; height: 700px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8); flex-shrink: 0; background-color: #000; }
 
-    #world { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; transition: transform 0.6s linear, opacity 0.8s; opacity: 0; }
+    #world { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; transition: transform 0.6s linear, opacity 0.8s; opacity: 0; background-position: bottom center; background-repeat: no-repeat; }
     
     #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0; transition: opacity 0.8s; }
     #score-board { position: absolute; top: 20px; right: 30px; background: rgba(0,0,0,0.7); color: #fff; padding: 10px 20px; font-size: 28px; font-weight: bold; border-radius: 10px; border: 2px solid gold; text-shadow: 2px 2px 0 #000; }
@@ -101,57 +103,46 @@
   </div>
 
   <script>
+    // --- УМНОЕ ДИНАМИЧЕСКОЕ МАСШТАБИРОВАНИЕ ---
     function resizeGame() {
       const game = document.getElementById('game-window');
-      const scale = Math.min(window.innerWidth / 1200, window.innerHeight / 700);
+      const gwWidth = parseFloat(game.style.width) || 1200;
+      const gwHeight = parseFloat(game.style.height) || 700;
+      
+      const scale = Math.min(window.innerWidth / gwWidth, window.innerHeight / gwHeight);
       game.style.transform = `scale(${scale})`;
       game.style.transformOrigin = 'center center';
     }
     window.addEventListener('resize', resizeGame);
-    resizeGame();
 
     const urlParams = new URLSearchParams(window.location.search);
-    let rawData = "";
+    const rawData = urlParams.get('data');
+    let gameData = null;
     
-    if (urlParams.has('z')) {
-        rawData = decompress(urlParams.get('z'));
-    } else if (urlParams.has('data')) {
-        try {
-            rawData = decodeURIComponent(atob(urlParams.get('data')));
-        } catch(e) {
-            rawData = decodeURIComponent(urlParams.get('data'));
+    if (rawData) {
+      try {
+        // 1. Пробуем распаковать новым алгоритмом LZ-String
+        const decompressed = LZString.decompressFromEncodedURIComponent(rawData);
+        if (decompressed) {
+          gameData = JSON.parse(decompressed);
+        } else {
+          // 2. Фоллбэк: старый Base64
+          gameData = JSON.parse(decodeURIComponent(atob(rawData)));
         }
+      } catch(e) {
+        try { gameData = JSON.parse(decodeURIComponent(atob(rawData))); } catch(err) {}
+      }
     }
     
-    if (!rawData || rawData === "{}") {
-      document.body.innerHTML = "<h1 style='color:white;'>Нет данных игры</h1>";
+    if (!gameData) {
+      document.body.innerHTML = "<h1 style='color:white; text-align:center;'>Нет данных игры</h1>";
     } else {
-      const data = JSON.parse(rawData);
-      initGame(data);
-    }
-
-    // LZW Decompression
-    function decompress(compressed) {
-        let dictionary = {};
-        for (let i = 0; i < 256; i++) dictionary[i] = String.fromCharCode(i);
-        let codes = Array.from(compressed).map(c => c.charCodeAt(0));
-        if (codes.length === 0) return "";
-        let word = String.fromCharCode(codes[0]), result = word, dictSize = 256;
-        for (let i = 1; i < codes.length; i++) {
-            let k = codes[i], entry = "";
-            if (dictionary.hasOwnProperty(k)) entry = dictionary[k];
-            else if (k === dictSize) entry = word + word.charAt(0);
-            result += entry;
-            dictionary[dictSize++] = word + entry.charAt(0);
-            word = entry;
-        }
-        return result;
+      initGame(gameData);
     }
 
     function initGame(data) {
-      document.getElementById('game-window').style.backgroundImage = `url(${data.bg})`;
-      
       const world = document.getElementById('world');
+      const gameWindow = document.getElementById('game-window');
       const playerWrapper = document.getElementById('player-wrapper');
       const playerAnimator = document.getElementById('player-animator');
       const playerImg = document.getElementById('player-img');
@@ -163,8 +154,27 @@
 
       const LEVEL_HEIGHT = 350; 
 
+      // --- МАГИЯ: ПОДСТРАИВАЕМ ОКНО ПОД ПРОПОРЦИИ КАРТИНКИ ---
+      const bgImg = new Image();
+      bgImg.src = data.bg;
+      bgImg.onload = () => {
+        const aspect = bgImg.naturalHeight / bgImg.naturalWidth;
+        const gwWidth = 1200; 
+        const gwHeight = 1200 * aspect; 
+        
+        gameWindow.style.width = gwWidth + 'px';
+        gameWindow.style.height = gwHeight + 'px';
+        
+        world.style.backgroundImage = `url(${data.bg})`;
+        world.style.backgroundSize = '100% 100%';
+        
+        resizeGame(); 
+      };
+
       // Выбор персонажа
-      data.chars.forEach(imgUrl => {
+      const charsToLoad = (data.chars && data.chars.length > 0) ? data.chars : ['https://cdn-icons-png.flaticon.com/128/104/104663.png'];
+      
+      charsToLoad.forEach(imgUrl => {
         const img = document.createElement('img');
         img.src = imgUrl;
         img.className = 'char-option';
@@ -218,9 +228,11 @@
         if (isAnimating || taskIndex !== currentIndex) return;
         isAnimating = true;
 
-        const targetLeft = isLeft ? 340 : 760; 
+        // Корректируем X-координаты для приземления, так как окно теперь может быть шире/уже
+        const centerOffset = parseFloat(gameWindow.style.width) / 2;
+        // 340 и 760 были прибиты гвоздями к ширине 1200. Высчитываем проценты (28.3% и 63.3%)
+        const targetLeft = isLeft ? (centerOffset - 260) : (centerOffset + 160); 
 
-        // Анимацию вешаем на обертку, чтобы не сбить scale() у самой картинки
         playerAnimator.classList.add('jumping');
 
         playerWrapper.style.left = `${targetLeft}px`;
@@ -263,7 +275,8 @@
                 scoreBoard.innerText = `⭐ 0`;
                 
                 playerWrapper.style.transition = 'none'; 
-                playerWrapper.style.left = '550px';
+                // Возвращаем в центр (45.8% от ширины)
+                playerWrapper.style.left = `${centerOffset - 50}px`;
                 playerWrapper.style.bottom = '60px';
                 
                 playerAnimator.classList.remove('falling');
