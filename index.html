@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Генератор: Платформер с буквами</title>
+  <!-- ПОДКЛЮЧАЕМ БИБЛИОТЕКУ СЖАТИЯ ТЕКСТА -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #111; color: #eee; padding: 20px; }
     .container { max-width: 900px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
@@ -115,37 +117,21 @@
 
       if (!valid || data.tasks.length === 0) return alert('Заполните все поля в оставшихся заданиях или удалите пустые строки!');
 
-      const json = JSON.stringify(data);
-      const lzw = compress(json);
+      // МАГИЯ СЖАТИЯ LZ-STRING
+      const jsonStr = JSON.stringify(data);
+      const compressedData = LZString.compressToEncodedURIComponent(jsonStr);
+      
       const currentUrl = window.location.href.replace(/\/[^\/]*$/, '/');
-      const widgetUrl = `${currentUrl}mario-widget.html?z=${encodeURIComponent(lzw)}`;
+      const widgetUrl = `${currentUrl}mario-widget.html?data=${compressedData}`;
       
       const iframeStr = `<iframe src="${widgetUrl}" width="1200" height="700" frameborder="0" allowfullscreen style="max-width: 100%; border: none;"></iframe>`;
       document.getElementById('iframe-code').value = iframeStr;
       navigator.clipboard.writeText(iframeStr);
       
       const btn = document.getElementById('generate-btn');
-      btn.innerText = '✅ Сжато и скопировано!';
+      btn.innerText = '✅ Код сжат и скопирован!';
       setTimeout(() => btn.innerText = 'Сгенерировать iframe-код', 2000);
     });
-
-    // LZW Compression
-    function compress(uncompressed) {
-        let dictionary = {};
-        for (let i = 0; i < 256; i++) dictionary[String.fromCharCode(i)] = i;
-        let word = "", result = [], dictSize = 256;
-        for (let i = 0; i < uncompressed.length; i++) {
-            let c = uncompressed.charAt(i), wc = word + c;
-            if (dictionary.hasOwnProperty(wc)) word = wc;
-            else {
-                result.push(dictionary[word]);
-                dictionary[wc] = dictSize++;
-                word = String(c);
-            }
-        }
-        if (word !== "") result.push(dictionary[word]);
-        return result.map(x => String.fromCharCode(x)).join("");
-    }
   </script>
 </body>
 </html>
