@@ -2,136 +2,294 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Генератор: Платформер с буквами</title>
-  <!-- ПОДКЛЮЧАЕМ БИБЛИОТЕКУ СЖАТИЯ ТЕКСТА -->
+  <title>Vertical Spelling Jump</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #111; color: #eee; padding: 20px; }
-    .container { max-width: 900px; margin: 0 auto; background: #222; padding: 20px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.8); }
-    h1 { color: #ff4500; text-align: center; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
-    h3 { border-bottom: 2px solid #444; padding-bottom: 5px; color: #ffaa00; }
-    input[type="url"], input[type="text"], select { width: 100%; margin-bottom: 10px; padding: 12px; border-radius: 5px; border: 1px solid #555; background: #333; color: white; box-sizing: border-box; font-size: 16px; font-family: inherit; }
-    button { background: #ff4500; color: white; padding: 12px; cursor: pointer; font-weight: bold; border: none; border-radius: 5px; transition: 0.2s; width: 100%; margin-top: 10px; font-size: 16px; }
-    button:hover { background: #ff6347; }
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; display: flex; justify-content: center; align-items: center; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
     
-    .task-card { background: #2a2a2a; border: 1px solid #444; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; align-items: center; position: relative; }
-    .task-card input { margin-bottom: 0; }
-    .task-num { font-size: 1.2rem; font-weight: bold; color: #ffaa00; min-width: 30px; }
-    
-    .delete-btn { width: 40px; height: 40px; margin: 0; padding: 0; background: #dc3545; color: white; border-radius: 5px; font-size: 18px; line-height: 40px; text-align: center; cursor: pointer; border: none; flex-shrink: 0; transition: 0.2s; }
-    .delete-btn:hover { background: #c82333; transform: scale(1.05); }
+    /* Главный контейнер. Теперь ФОН висит именно на нем, поэтому он всегда статичен! */
+    #game-window { position: relative; width: 1200px; height: 700px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.8); flex-shrink: 0; background-color: #000; }
 
-    #add-task-btn { background: transparent; border: 2px dashed #ff4500; color: #ff4500; }
-    #add-task-btn:hover { background: rgba(255, 69, 0, 0.1); }
+    /* Подвижный слой мира (уезжает вниз). Больше не тянет за собой фон */
+    #world { position: absolute; left: 0; bottom: 0; width: 100%; height: 100%; transition: transform 0.6s linear, opacity 0.8s; opacity: 0; }
+    
+    #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; opacity: 0; transition: opacity 0.8s; }
+    #score-board { position: absolute; top: 20px; right: 30px; background: rgba(0,0,0,0.7); color: #fff; padding: 10px 20px; font-size: 28px; font-weight: bold; border-radius: 10px; border: 2px solid gold; text-shadow: 2px 2px 0 #000; }
+
+    /* Обертка для позиционирования */
+    #player-wrapper {
+      position: absolute;
+      width: 100px; height: 100px;
+      bottom: 60px; 
+      left: 550px;  
+      z-index: 40;
+      transition: left 0.4s linear, bottom 0.6s linear;
+    }
+
+    /* Обертка для анимации прыжка/падения */
+    #player-animator { width: 100%; height: 100%; }
+
+    /* Сама картинка, здесь применяется масштаб */
+    #player-img { 
+      width: 100%; height: 100%; 
+      object-fit: contain; 
+      transform-origin: bottom center; 
+    }
+
+    @keyframes jumpArc {
+      0% { transform: translateY(0); animation-timing-function: ease-out; }
+      50% { transform: translateY(-250px); animation-timing-function: ease-in; }
+      100% { transform: translateY(0); }
+    }
+    .jumping { animation: jumpArc 0.6s forwards; }
+
+    @keyframes deathFall {
+      0% { transform: translateY(0) rotate(0deg); }
+      100% { transform: translateY(1000px) rotate(1080deg); }
+    }
+    .falling { animation: deathFall 1.2s forwards; }
+
+    .word-display { position: absolute; width: 100%; text-align: center; font-size: 70px; color: white; font-weight: 900; text-shadow: 4px 4px 0 #000, 0 0 15px rgba(255,255,255,0.5); letter-spacing: 8px; z-index: 20;}
+    
+    .question-block {
+      position: absolute;
+      width: 80px; height: 80px;
+      background: linear-gradient(135deg, #ffc107, #d39e00);
+      border: 4px solid #000;
+      border-radius: 8px;
+      display: flex; justify-content: center; align-items: center;
+      font-size: 50px; color: white; font-weight: 900;
+      cursor: pointer; pointer-events: auto;
+      box-shadow: inset -5px -5px 0 rgba(0,0,0,0.3), inset 5px 5px 0 rgba(255,255,255,0.6), 5px 5px 20px rgba(0,0,0,0.8);
+      text-shadow: 2px 2px 0 #000;
+      transition: background 0.3s;
+      z-index: 20;
+    }
+    .question-block::after { content: ''; position: absolute; inset: 4px; border: 2px dashed rgba(0,0,0,0.15); border-radius: 4px; pointer-events: none; }
+
+    #start-screen { background: #000; z-index: 300; }
+    .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; color: white; }
+    .char-select { display: flex; gap: 30px; margin-top: 30px; }
+    .char-option { width: 120px; height: 120px; object-fit: contain; cursor: pointer; transition: 0.2s; background: rgba(255,255,255,0.1); border-radius: 15px; padding: 10px; border: 4px solid transparent; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+    .char-option:hover { transform: scale(1.1); border-color: #00bfff; background: rgba(0,191,255,0.2); }
+    
+    #victory-screen { background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Генератор Платформера</h1>
-    
-    <h3>1. Графика и настройки</h3>
-    <input type="url" id="bg-url" placeholder="URL фона (например, лес или горы)">
-    <input type="url" id="char1-url" placeholder="URL персонажа 1">
-    <input type="url" id="char2-url" placeholder="URL персонажа 2">
-    <input type="url" id="char3-url" placeholder="URL персонажа 3">
-    
-    <!-- Настройка размера персонажа -->
-    <select id="char-scale">
-      <option value="1">Размер персонажа: Стандартный (1x)</option>
-      <option value="1.5">Размер персонажа: Увеличенный (1.5x)</option>
-      <option value="2">Размер персонажа: Большой (2x)</option>
-      <option value="2.5">Размер персонажа: Огромный (2.5x)</option>
-      <option value="3">Размер персонажа: Гигантский (3x)</option>
-    </select>
 
-    <h3>2. Задания (Слова с пропусками)</h3>
-    <p style="color: #aaa; font-size: 0.9em;">Используйте нижнее подчеркивание "_" для пропуска. Например: С_БАКА.</p>
-    <div id="tasks-panel"></div>
-    <button id="add-task-btn">+ Добавить слово</button>
+  <div id="game-window">
+    <div id="world">
+      <div id="player-wrapper">
+        <div id="player-animator">
+          <img id="player-img" src="">
+        </div>
+      </div>
+    </div>
+    
+    <div id="ui-layer">
+      <div id="score-board">⭐ 0</div>
+    </div>
 
-    <h3>3. Экспорт для Genially (1200x700)</h3>
-    <button id="generate-btn" style="background: #28a745;">Сгенерировать iframe-код</button>
-    <textarea id="iframe-code" rows="4" readonly style="width: 100%; margin-top: 15px; padding: 10px; background: #111; color: #0f0; border: 1px solid #333;"></textarea>
+    <div id="start-screen" class="overlay">
+      <h1 style="color: #fff; text-shadow: 2px 2px 0 #000, 0 0 20px #00bfff;">Выбери героя</h1>
+      <div class="char-select" id="char-container"></div>
+    </div>
+
+    <div id="victory-screen" class="overlay" style="display: none;">
+      <h1 style="font-size: 80px; color: gold; text-shadow: 0 0 30px rgba(255,215,0,0.8); margin: 0; text-align: center;">Умничка!</h1>
+      <p style="font-size: 40px; color: #fff; text-shadow: 2px 2px 0 #000; text-align: center;">ПОБЕДА! 🏆</p>
+    </div>
   </div>
 
   <script>
-    let taskCount = 0;
-    const tasksPanel = document.getElementById('tasks-panel');
-
-    function addTask() {
-      taskCount++;
-      const div = document.createElement('div');
-      div.className = 'task-card';
-      div.id = `task-${taskCount}`;
-      div.innerHTML = `
-        <div class="task-num">${taskCount}.</div>
-        <input type="text" class="t-word" placeholder="Слово (напр: К_РОВА)" style="flex: 2;">
-        <input type="text" class="t-correct" placeholder="Верная буква (О)" style="flex: 1; border-color: #28a745;">
-        <input type="text" class="t-wrong" placeholder="Ошибка (А)" style="flex: 1; border-color: #dc3545;">
-        <button class="delete-btn" onclick="this.parentElement.remove()" title="Удалить слово">✖</button>
-      `;
-      tasksPanel.appendChild(div);
-      updateNumbers(); 
+    function resizeGame() {
+      const game = document.getElementById('game-window');
+      const gwWidth = parseFloat(game.style.width) || 1200;
+      const gwHeight = parseFloat(game.style.height) || 700;
+      
+      const scale = Math.min(window.innerWidth / gwWidth, window.innerHeight / gwHeight);
+      game.style.transform = `scale(${scale})`;
+      game.style.transformOrigin = 'center center';
     }
+    window.addEventListener('resize', resizeGame);
 
-    function updateNumbers() {
-      const cards = document.querySelectorAll('.task-card');
-      cards.forEach((card, index) => {
-        card.querySelector('.task-num').innerText = `${index + 1}.`;
-      });
-    }
-
-    addTask(); addTask(); addTask();
+    const urlParams = new URLSearchParams(window.location.search);
+    const rawData = urlParams.get('data');
+    let gameData = null;
     
-    tasksPanel.addEventListener('click', function(e) {
-      if(e.target.classList.contains('delete-btn')) {
-        setTimeout(updateNumbers, 10); 
+    if (rawData) {
+      try {
+        const decompressed = LZString.decompressFromEncodedURIComponent(rawData);
+        if (decompressed) {
+          gameData = JSON.parse(decompressed);
+        } else {
+          gameData = JSON.parse(decodeURIComponent(atob(rawData)));
+        }
+      } catch(e) {
+        try { gameData = JSON.parse(decodeURIComponent(atob(rawData))); } catch(err) {}
       }
-    });
+    }
+    
+    if (!gameData) {
+      document.body.innerHTML = "<h1 style='color:white; text-align:center;'>Нет данных игры</h1>";
+    } else {
+      initGame(gameData);
+    }
 
-    document.getElementById('add-task-btn').addEventListener('click', addTask);
+    function initGame(data) {
+      const world = document.getElementById('world');
+      const gameWindow = document.getElementById('game-window');
+      const playerWrapper = document.getElementById('player-wrapper');
+      const playerAnimator = document.getElementById('player-animator');
+      const playerImg = document.getElementById('player-img');
+      const scoreBoard = document.getElementById('score-board');
+      
+      let currentIndex = 0;
+      let score = 0;
+      let isAnimating = false;
 
-    document.getElementById('generate-btn').addEventListener('click', () => {
-      const data = {
-        bg: document.getElementById('bg-url').value || 'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=1200', 
-        chars: [
-          document.getElementById('char1-url').value || 'https://cdn-icons-png.flaticon.com/128/104/104663.png',
-          document.getElementById('char2-url').value,
-          document.getElementById('char3-url').value
-        ].filter(Boolean),
-        charScale: document.getElementById('char-scale').value, // Сохраняем масштаб
-        tasks: []
+      const LEVEL_HEIGHT = 350; 
+
+      const bgImg = new Image();
+      bgImg.src = data.bg;
+      bgImg.onload = () => {
+        const aspect = bgImg.naturalHeight / bgImg.naturalWidth;
+        const gwWidth = 1200; 
+        const gwHeight = 1200 * aspect; 
+        
+        gameWindow.style.width = gwWidth + 'px';
+        gameWindow.style.height = gwHeight + 'px';
+        
+        // ВОТ ЗДЕСЬ МЫ ПРИВЯЗАЛИ ФОН К СТАТИЧНОМУ ОКНУ!
+        gameWindow.style.backgroundImage = `url(${data.bg})`;
+        gameWindow.style.backgroundSize = '100% 100%';
+        
+        resizeGame(); 
       };
 
-      let valid = true;
-      document.querySelectorAll('.task-card').forEach(card => {
-        const word = card.querySelector('.t-word').value.trim();
-        const correct = card.querySelector('.t-correct').value.trim().toUpperCase();
-        const wrong = card.querySelector('.t-wrong').value.trim().toUpperCase();
-        
-        if(word || correct || wrong) {
-          if(!word || !correct || !wrong) valid = false;
-          data.tasks.push({ word, correct, wrong });
-        }
+      const charsToLoad = (data.chars && data.chars.length > 0) ? data.chars : ['https://cdn-icons-png.flaticon.com/128/104/104663.png'];
+      
+      charsToLoad.forEach(imgUrl => {
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.className = 'char-option';
+        img.onclick = () => {
+          playerImg.src = imgUrl;
+          const scale = data.charScale || 1;
+          playerImg.style.transform = `scale(${scale})`;
+          
+          document.getElementById('start-screen').style.display = 'none';
+          world.style.opacity = '1';
+          document.getElementById('ui-layer').style.opacity = '1';
+        };
+        document.getElementById('char-container').appendChild(img);
       });
 
-      if (!valid || data.tasks.length === 0) return alert('Заполните все поля в оставшихся заданиях или удалите пустые строки!');
+      data.tasks.forEach((task, index) => {
+        const targetY = 60 + (index + 1) * LEVEL_HEIGHT; 
+        const blockY = targetY - 80; 
+        const wordY = targetY + 60;  
 
-      // МАГИЯ СЖАТИЯ LZ-STRING
-      const jsonStr = JSON.stringify(data);
-      const compressedData = LZString.compressToEncodedURIComponent(jsonStr);
-      
-      const currentUrl = window.location.href.replace(/\/[^\/]*$/, '/');
-      const widgetUrl = `${currentUrl}mario-widget.html?data=${compressedData}`;
-      
-      const iframeStr = `<iframe src="${widgetUrl}" width="1200" height="700" frameborder="0" allowfullscreen style="max-width: 100%; border: none;"></iframe>`;
-      document.getElementById('iframe-code').value = iframeStr;
-      navigator.clipboard.writeText(iframeStr);
-      
-      const btn = document.getElementById('generate-btn');
-      btn.innerText = '✅ Код сжат и скопирован!';
-      setTimeout(() => btn.innerText = 'Сгенерировать iframe-код', 2000);
-    });
+        const isCorrectLeft = Math.random() > 0.5;
+        const leftLetter = isCorrectLeft ? task.correct : task.wrong;
+        const rightLetter = isCorrectLeft ? task.wrong : task.correct;
+
+        const wordEl = document.createElement('div');
+        wordEl.className = 'word-display';
+        wordEl.id = `word-${index}`;
+        wordEl.style.bottom = `${wordY}px`;
+        wordEl.innerText = task.word;
+        world.appendChild(wordEl);
+
+        const leftBlock = document.createElement('div');
+        leftBlock.className = 'question-block';
+        leftBlock.style.bottom = `${blockY}px`;
+        leftBlock.style.left = '350px';
+        leftBlock.innerText = leftLetter;
+        leftBlock.onclick = () => checkAnswer(index, leftLetter, task.correct, leftBlock, true, targetY);
+        world.appendChild(leftBlock);
+
+        const rightBlock = document.createElement('div');
+        rightBlock.className = 'question-block';
+        rightBlock.style.bottom = `${blockY}px`;
+        rightBlock.style.left = '770px';
+        rightBlock.innerText = rightLetter;
+        rightBlock.onclick = () => checkAnswer(index, rightLetter, task.correct, rightBlock, false, targetY);
+        world.appendChild(rightBlock);
+      });
+
+      window.checkAnswer = function(taskIndex, selectedLetter, correctLetter, blockElement, isLeft, targetY) {
+        if (isAnimating || taskIndex !== currentIndex) return;
+        isAnimating = true;
+
+        const centerOffset = parseFloat(gameWindow.style.width) / 2;
+        const targetLeft = isLeft ? (centerOffset - 260) : (centerOffset + 160); 
+
+        playerAnimator.classList.add('jumping');
+
+        playerWrapper.style.left = `${targetLeft}px`;
+        playerWrapper.style.bottom = `${targetY}px`;
+
+        const cameraY = Math.max(0, targetY - 200);
+        world.style.transform = `translateY(${cameraY}px)`;
+
+        setTimeout(() => {
+          playerAnimator.classList.remove('jumping');
+
+          if (selectedLetter === correctLetter) {
+            blockElement.style.background = '#28a745';
+            const wordEl = document.getElementById(`word-${taskIndex}`);
+            wordEl.innerText = wordEl.innerText.replace('_', correctLetter);
+            score++;
+            scoreBoard.innerText = `⭐ ${score}`;
+
+            currentIndex++;
+            if (currentIndex >= data.tasks.length) {
+              setTimeout(() => {
+                document.getElementById('victory-screen').style.display = 'flex';
+              }, 500);
+            } else {
+              isAnimating = false;
+            }
+
+          } else {
+            blockElement.style.background = '#dc3545';
+            
+            setTimeout(() => {
+              world.style.transition = 'transform 1s cubic-bezier(0.5, 0, 1, 1)';
+              world.style.transform = `translateY(0px)`;
+              
+              playerAnimator.classList.add('falling');
+
+              setTimeout(() => {
+                currentIndex = 0;
+                score = 0;
+                scoreBoard.innerText = `⭐ 0`;
+                
+                playerWrapper.style.transition = 'none'; 
+                playerWrapper.style.left = `${centerOffset - 50}px`;
+                playerWrapper.style.bottom = '60px';
+                
+                playerAnimator.classList.remove('falling');
+                
+                data.tasks.forEach((t, i) => {
+                  document.getElementById(`word-${i}`).innerText = t.word;
+                });
+                document.querySelectorAll('.question-block').forEach(el => el.style.background = '');
+
+                setTimeout(() => {
+                  world.style.transition = 'transform 0.6s linear, opacity 0.8s';
+                  playerWrapper.style.transition = 'left 0.4s linear, bottom 0.6s linear';
+                  isAnimating = false;
+                }, 50);
+
+              }, 1000); 
+            }, 300); 
+          }
+        }, 600); 
+      };
+    }
   </script>
 </body>
 </html>
